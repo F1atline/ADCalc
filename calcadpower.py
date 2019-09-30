@@ -1,12 +1,12 @@
-from Tkinter import *
+from tkinter import *
 
 root = Tk()
 
-root.title("hello")
+root.title('Program for calculation AD characteristic')
 root.geometry('500x400+300+200')
 
-#create
-frame1=Frame(root,bd=1)
+# create
+frame1 = Frame(root, bd=1)
 
 e_pp = Entry(frame1, width=10)
 l_pp = Label(frame1, text='pair of pole')
@@ -41,27 +41,38 @@ l_Mp = Label(frame1, text='torque of start')
 e_I1p = Entry(frame1, width=10)
 l_I1p = Label(frame1, text='current of start')
 
-frame1.pack()
-l_pp.pack()
+frame1.pack(side=LEFT)
+
 e_pp.pack()
+l_pp.pack()
+
 e_u1n.pack()
 l_u1n.pack()
+
 e_f1n.pack()
 l_f1n.pack()
+
 e_Pn.pack()
 l_Pn.pack()
+
 e_nn.pack()
 l_nn.pack()
+
 e_I1n.pack()
 l_I1n.pack()
+
 e_effnom.pack()
 l_effnom.pack()
+
 e_cosfi1n.pack()
 l_cosfi1n.pack()
+
 e_Mk.pack()
 l_Mk.pack()
+
 e_Mp.pack()
 l_Mp.pack()
+
 e_I1p.pack()
 l_I1p.pack()
 
