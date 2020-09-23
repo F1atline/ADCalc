@@ -1,90 +1,215 @@
 #for 2.7 python
-#calculate power of charger device for LFP and IGM
+#calculation charackteristic for asyncronious motor
 #SUSU
 
-import numpy as np
-import matplotlib.pyplot as plt
+from math import sqrt, cos, radians, copysign 
+from matplotlib import pyplot
 
-#Input voltage amplitude
-ampletude = 15
+tip='4MTKF(H)200L6'  #Тип двигателя
+pp=3                  #Число пар полюсов
+u1n=220           #Номинальное фазное напряжение,В
+f1n=50               #Номинальная частота,Гц
+Pn=22000        #Номинальная мощность, Вт
+nn=935            #Номинальная скорость,об/мин
+I1n=51             #Номинальный ток статора,А 
+kpdn=0.83       #Номинальный кпд
+cosfi1n=0.79  #Номинальный cos fi1n
+Mk=760           #Критический момент, Нм
+Mp=706          #Пусковой момент,Нм
+I1p=275          #Пусковой ток статора, A
 
-#Active components
-resist_in = 10000.0; resist_afte_pre_charger = 0.10; resist_in_schame = 20.0; add_res =2.0;
+r1=0.232        #Cопротивление активное фазной обмотки СТАТОРА,Ом
+r2p=0.325     #Сопротивление активное приведенное фазной обмотки РОТОРА,Ом  
+x1=0.285         #Сопротивление индуктивное фазной обмотки СТАТОРА,Ом
+x2p=0.2844    #Сопротивление индуктивное приведенное фазной обмотки РОТОРА,Ом
+Imn=26.3        #Ток намагничивания номинальный, А  
 
-#Reactive components
-capacity=0.01; inductiance=0.06;
+#Выбрать источник питания
 
-#Time components
-Period=0.01; Time_start=0.0; step=Period/1000;
-Time_freq=Period*10
+In = 1            #Источник напряжения in=1
+it = 0              #Источник тока it=1
+dt = 0              #Динамическое торможение dt=1
 
-steps=int(Time_freq/step);
+#Задать параметры  источника питания
 
-#Input voltage
-def E(Period):
-    n=int(Period/Period)
-    if ((Period >= n*Period )and(Period <= n*Period + Period/2)):
-        return ampletude
+if (In==1):                #Источник напряжения in=1
+   u1s=220          #Фазное напряжение в заданной точке, В
+   f1=50                #Частота в заданной точке,Гц
+
+if it==1:                #Источник тока it=1
+   i1s=55           #Ток фазы статора в заданной точке, А
+   f1=15              #Частота в заданной точке,Гц
+
+if dt==1 and it==1:
+   f1=0                  #Частота в заданной точке,Гц
+   Ipost=100       #Постоянный ток статора для заданной точки, А
+   kc=0.816        #Коэффициент схемы включения постоянного тока
+   i1s=kc*Ipost   #Эквивалентный переменный ток фазы статора                     #для заданной точки, А  
+    
+#Добавочные сопротивления статора, Ом
+R1d=0 
+X1d=0
+        
+kot=0         #Коэффициент ПОС по активной составляющей тока статора:
+                   # kot=1 - для компенсации скольжения s=sn 
+      
+krn=1         #При учете кривой намагничивания krn=1
+
+         
+#Расчетные данные двигателя
+pi=3.1416
+won=2*pi*f1n/pp #Номинальная синхронная скорость,рад/с
+wn=nn/9.55      #Номинальная скорость,рад/с
+Mn=Pn/wn        #Номинальный момент,Нм
+sn=(won-wn)/won #Номинальное скольжение
+Mko=Mk/Mn       #Критический момент, о.е.
+Mpo=Mp/Mn       #Пусковой момент, о.е.
+I1po=I1p/I1n    #Пусковой ток статора, о.е.
+a1=r1/r2p
+sk=sn*(Mko+sqrt((Mko**2-1)+2*a1*sn*(Mko-1))/(1-2*sn*a1*(Mko-1)))
+Memn=2*Mk*(1+a1*sk)/(sn/sk+sk/sn+2*a1*sk) #Номинальный электромагнитный момент,Нм
+dMxn=Memn-Mn         #Потери момента в номинальном режиме, Нм
+r2v=Mp*won/(3*I1p**2) #Невыключаемое приведенное активное сопротивление ротора    
+                      #c учетом вытеснения тока ротора ,Ом  
+sinfi1n=sqrt(1-cosfi1n**2)
+if Imn==0: 
+    Imn=I1n*(sinfi1n-cosfi1n*sn/sk)#Ток намагничивания  в номинальном режиме, А
+                     
+xmn=u1n/Imn-x1#Индуктивное сопротивление контура намагничивания,Ом
+E1n=Imn*xmn   #Номинальная ЭДС статора, В
+r1=r1+R1d
+x1=x1+X1d
+ks=0
+Im=Imn
+won=abs(won)
+
+wna=-10            #Начальная скорость, рад/с
+wko=110            #Конечная скорость, рад/с   wn110
+dw=0.5            #Шаг по скорости, рад/с
+
+M1=Mk  
+w1=won*(1-sk)     #Координаты заданной точки 1
+M2=Mp 
+w2=0     #Координаты заданной точки 2
+M3=I1p
+w3=0     #Координаты заданной точки 2
+w=wna
+m = []
+v = []
+while w <= wko:
+    v.append(w)
+    if dt==1:
+        a=1
+        s=-w/won
+        wo=won
     else:
-        return 0.0
+        a=(f1+ks)/f1n      #ks - Введение компенсации скольжения
+        wo=a*won
+        s=(wo-w)/wo
+
+    if abs(s)<0.001:
+        s=0.001
+    
+    if krn==0:
+        xm=xmn
+    else:
+        imo = Im / Imn 
+    
+        if imo<0.37:
+            em=1.35*imo                  #kk=1.35
+        if imo>0.37: 
+            em=0.5+1.09*(imo-0.37)       #kk=1.095 
+        if imo>0.6: 
+            em=0.75+0.625*(imo-0.6)       #kk=0.625
+        if imo>1: 
+            em=1+0.5*(imo-1)                #kk=0.5
+        if imo>1.2:
+            em=1.1+0.167*(imo-1.2)         #kk=0.167 
+        if imo>1.8: 
+            em=1.2+0.1*(imo-1.8)          #kk=0.1
+        if em>1.3: 
+            em=1.3
+        
+        xm=em*E1n/(imo*Imn)
+    r2s=(r2v)/s
+    #if (r2v-r2p)>0 r2s=(r2p+(r2v-r2p))/s end #учет вытеснения тока ротора
+    z2p=r2s+1j*x2p*a                          
+    zm=1j*xm*a
+    zmr=zm*z2p/(zm+z2p)
+  
+    z1=r1+1j*x1*a
+    zc=z1+zmr
+    if dt==1:
+        i2p=i1s*zm/(z2p+zm)
+        I2p=abs(i2p)                             #Приведенный ток ротора,А     
+        im=i1s*z2p/(z2p+zm)
+        Im=abs(im)      
+        I1=abs(i1s)                              #Ток статора, А
+        I1a=i1s.real
+    else:
+        if it==1:
+            i1=i1s
+            u1=i1*zc                               # Источник тока
+        if In==1:
+            u1=u1s+ks*u1n/f1n
+            i1=u1/zc     # Источник напряжения
+        I1=abs(i1)                                                            #Ток статора, А
+        I1a=i1.real
+        e=i1*zmr
+        im=e/zm 
+        Im=abs(im)
+        i2p=-e/z2p 
+        I2p=abs(i2p)                            #Приведенный ток ротора,А 
+    
+    #Компенсация скольжения ks,Гц
+    dfoi=f1n*I1a/(I1n*cosfi1n)       #Приращение частоты f1 от обратной связи  
+    if w>wo:
+        dfoi=0              
+    ks=kot*sn*dfoi                            #по активной составляющей тока статора  
+   
+ #Расчет момента, мощностей и энергетических показателей
+    
+    M = 3*I2p**2*r2s/wo             #Электромагнитный момент, нм
+    m.append(M)
+    if f1==0:
+        cosfi=0
+    #else:
+        #cosfi=abs(cos(radians(zc))) #Коэффициент мощности двигателя
+   
+    sign = lambda val: copysign(1, val)
+    dMx=abs(dMxn)*sign(w)   #Реактивный момент х.х. двигателя                 
+    Pv=(M-dMx)*w                      #Мощность на валу, Вт
+    dP2=3*I2p*I2p*r2p             #Потери мощности в обмотках ротора, Вт
+    Pem=M*w+dP2                  #Мощность электромагнитная, Вт
+    dP1=3*I1*I1*r1                  #Потери мощности в обмотках статора, Вт
+    Pc=3*abs(u1)*I1a             #Мощность сети, Вт
+  
+    if dt==1:
+        Pc=0 
+        kpd=0
+    else:
+        kpd=Pv/Pc               # КПД
+
+    if (Pv<0 and Pc<0): 
+        kpd=Pc/Pv
+           
+    if (M==0 or w==0):
+        kpd=0
+    if kpd <=0:
+        kpd=0
+    if kpd >1:
+        kpd=0
+    w += dw
+
+va = [int for _ in range(wna, wko)]
+fig, figure = pyplot.subplots()
+#for i in range(wna, wko):
+ #   va[i] = i
+ #   figure.scatter(i, va[i])
+print(v, m)
+figure.plot(v, m)
 
 
-time = np.arange(Time_start, Time_freq, step)
-
-ul = []; il = []; uc = []; ic = []; y = [];
-
-for i in range(0, steps, 1):
-    y.append(E(time[i]))
-
-def dIl_dt(Period):
-    return float((1.0/inductiance)*(E(Period) - (resist_afte_pre_charger+resist_in_schame)*il[int(Period/step)]*resist_in/(resist_in+resist_afte_pre_charger+resist_in_schame)))
-
-def dUc_dt(Period):
-    return float((1.0/capacity)*((resist_in_schame*resist_in*il[int(Period/step)]/(resist_in+resist_afte_pre_charger+resist_in_schame) - uc[int(Period/step)])/add_res))
-
-#Uc
-def Uc(Period):
-    return float((il[int(Period/step)] - ic[int(Period/step)])*resist_in_schame - ic[int(Period/step)]*add_res)
-#Il
-def Il(Period):
-    return float(((E(Period)-ul[int(Period/step)])*(resist_in*(resist_afte_pre_charger+resist_in_schame) + resist_in)/(resist_in*resist_in*(resist_afte_pre_charger+resist_in_schame))) + ic[int(Period/step)])
-
-#Start condition
-ul.append(E(0)); il.append(0.0); uc.append(0.0); ic.append(0.0);
-
-#Euler method
-for i in range(1, steps, 1):
-    il.append(il[i-1] + step*dIl_dt(time[i-1]))
-    uc.append(uc[i-1] + step*dUc_dt(time[i-1]))
-    ul.append(inductiance*dIl_dt(time[i]))
-    ic.append(capacity*dUc_dt(time[i]))
-print("hello world MFC!")
-plt.figure("charts")
-e = plt.subplot(311)
-e.plot(time, y)
-e.set_xlabel('time (s)')
-e.set_ylabel('E(Period), (V)', color='b')
-plt.grid(True)
-print("Damage for u brain!")
-
-UL = plt.subplot(312)
-UL.plot(time, ul)
-UL.set_xlabel('time (s)')
-UL.set_ylabel('Ul(Period), (V)', color = 'b')
-
-IL = UL.twinx()
-IL.plot(time, il, 'r')
-IL.set_ylabel('Il(Period), (A)', color = 'r')
-plt.grid(True)
-
-UC = plt.subplot(313)
-UC.plot(time, uc)
-UC.set_xlabel('time (s)')
-UC.set_ylabel('Uc(Period), (V)', color = 'b')
-
-IC = UC.twinx()
-IC.plot(time, ic, color = 'r')
-IC.set_ylabel('Ic(Period), (A)', color = 'r')
-plt.grid(True)
-
-plt.show()
+print("Good job!")
+figure.legend()
+pyplot.show()
